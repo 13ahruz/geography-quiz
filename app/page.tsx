@@ -134,6 +134,8 @@ const EASY_COUNTRY_NAMES = new Set([
 
 const HARD_COUNTRY_NAMES = new Set([
   'aruba',
+  'french southern and antarctic lands',
+  'french southern territories',
   'bermuda',
   'maldives',
   'seychelles',
@@ -185,7 +187,8 @@ function getCountryLevel(country: Country): Level {
   const name = country.name.common.toLowerCase();
   const official = country.name.official.toLowerCase();
   const isIslandOrTerritory =
-    /island|islands|isle|atoll|archipelago/.test(name) ||
+    /island|islands|isle|atoll|archipelago|territor(y|ies)|lands|southern|antarctic|overseas/.test(name) ||
+    /island|islands|isle|atoll|archipelago|territor(y|ies)|lands|southern|antarctic|overseas/.test(official) ||
     HARD_COUNTRY_NAMES.has(name) ||
     HARD_COUNTRY_NAMES.has(official);
 
