@@ -58,10 +58,13 @@ interface CountrySourceItem {
 
 interface QuizSettings {
   categories: string[];
+  levels: Level[];
   questionCount: number;
   timePerQuestion: number;
   questionType: 'multiple' | 'openended' | 'map';
 }
+
+type Level = 'easy' | 'medium' | 'hard';
 
 interface Question {
   id: string;
@@ -94,6 +97,109 @@ const QUESTION_TYPES = [
 
 const WORLD_REGIONS = ['Africa', 'Americas', 'Asia', 'Europe', 'Oceania', 'Antarctic'];
 
+const LEVELS: Array<{ id: Level; label: string; description: string }> = [
+  { id: 'easy', label: 'Easy', description: 'Well-known countries like USA, Germany, Netherlands' },
+  { id: 'medium', label: 'Medium', description: 'Balanced mix of familiar and less common countries' },
+  { id: 'hard', label: 'Hard', description: 'Smaller, remote, or island countries' },
+];
+
+const EASY_COUNTRY_NAMES = new Set([
+  'united states',
+  'united states of america',
+  'usa',
+  'canada',
+  'mexico',
+  'brazil',
+  'argentina',
+  'chile',
+  'peru',
+  'colombia',
+  'germany',
+  'netherlands',
+  'france',
+  'spain',
+  'italy',
+  'united kingdom',
+  'uk',
+  'england',
+  'japan',
+  'china',
+  'india',
+  'australia',
+  'new zealand',
+  'south africa',
+  'turkey',
+  'russia',
+]);
+
+const HARD_COUNTRY_NAMES = new Set([
+  'aruba',
+  'bermuda',
+  'maldives',
+  'seychelles',
+  'fiji',
+  'bahamas',
+  'barbados',
+  'cape verde',
+  'grenada',
+  'samoa',
+  'tonga',
+  'palau',
+  'kiribati',
+  'tuvalu',
+  'nauru',
+  'micronesia',
+  'guam',
+  'puerto rico',
+  'greenland',
+  'hong kong',
+  'macau',
+  'gibraltar',
+  'faroe islands',
+  'cayman islands',
+  'turks and caicos islands',
+  'british virgin islands',
+  'u.s. virgin islands',
+  'us virgin islands',
+  'cook islands',
+  'marshall islands',
+  'solomon islands',
+  'new caledonia',
+  'saint helena',
+  'falkland islands',
+  'vatican city',
+  'monaco',
+  'san marino',
+  'liechtenstein',
+  'andorra',
+  'luxembourg',
+  'brunei',
+  'comoros',
+  'dominica',
+  'sao tome and principe',
+]);
+
+function getCountryLevel(country: Country): Level {
+  const population = country.population || 0;
+  const region = country.region || '';
+  const name = country.name.common.toLowerCase();
+  const official = country.name.official.toLowerCase();
+  const isIslandOrTerritory =
+    /island|islands|isle|atoll|archipelago/.test(name) ||
+    HARD_COUNTRY_NAMES.has(name) ||
+    HARD_COUNTRY_NAMES.has(official);
+
+  if (isIslandOrTerritory || region === 'Oceania' || region === 'Antarctic' || population < 2_000_000) {
+    return 'hard';
+  }
+
+  if (EASY_COUNTRY_NAMES.has(name) || EASY_COUNTRY_NAMES.has(official)) return 'easy';
+
+  if (population >= 20_000_000) return 'easy';
+  if (population >= 2_000_000) return 'medium';
+  return 'hard';
+}
+
 export default function GeographyQuiz() {
   const [gameState, setGameState] = useState<'setup' | 'playing' | 'results'>('setup');
   const [countries, setCountries] = useState<Country[]>([]);
@@ -102,6 +208,7 @@ export default function GeographyQuiz() {
   const [reloadKey, setReloadKey] = useState(0);
   const [settings, setSettings] = useState<QuizSettings>({
     categories: ['capital'],
+    levels: ['easy', 'medium', 'hard'],
     questionCount: 10,
     timePerQuestion: 30,
     questionType: 'multiple',
@@ -246,7 +353,9 @@ export default function GeographyQuiz() {
   // Generate quiz questions
   const generateQuestions = useCallback(() => {
     const shuffled = [...countries].sort(() => Math.random() - 0.5);
-    const selectedCountries = shuffled.slice(0, settings.questionCount);
+    const allowedLevels = settings.levels.length > 0 ? settings.levels : ['easy', 'medium', 'hard'];
+    const filteredCountries = shuffled.filter(country => allowedLevels.includes(getCountryLevel(country)));
+    const selectedCountries = (filteredCountries.length > 0 ? filteredCountries : shuffled).slice(0, settings.questionCount);
     const newQuestions: Question[] = [];
 
     selectedCountries.forEach((country) => {
@@ -605,6 +714,44 @@ export default function GeographyQuiz() {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Level Filter */}
+                <div>
+                  <label className="inline-flex text-white font-semibold mb-4 items-center gap-2">
+                    <Flame className="w-5 h-5 text-emerald-400" />
+                    Difficulty Levels
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {LEVELS.map(level => (
+                      <motion.button
+                        key={level.id}
+                        onClick={() => {
+                          setSettings(prev => {
+                            const nextLevels = prev.levels.includes(level.id)
+                              ? prev.levels.filter(item => item !== level.id)
+                              : [...prev.levels, level.id];
+
+                            return {
+                              ...prev,
+                              levels: nextLevels.length ? nextLevels : prev.levels,
+                            };
+                          });
+                        }}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          settings.levels.includes(level.id)
+                            ? 'bg-emerald-500 border-emerald-400 text-white'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="font-semibold">{level.label}</div>
+                        <div className="text-xs opacity-80 mt-1">{level.description}</div>
+                      </motion.button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-3">You can select one, two, or all three levels together.</p>
                 </div>
 
                 {/* Question Count */}
