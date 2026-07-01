@@ -8,7 +8,7 @@ export async function GET() {
 
   for (const source of sources) {
     try {
-      const res = await fetch(source, { timeout: 10000 });
+      const res = await fetch(source, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) {
         console.warn(`API returned status ${res.status} from ${source}`);
         continue;
